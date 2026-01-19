@@ -46,45 +46,58 @@ import { createTestRenderer } from "@opentui/core/testing"
 import { TextRenderable } from "@opentui/core"
 
 test("renders text", async () => {
-  const { renderer, snapshot } = await createTestRenderer({
+  const testSetup = await createTestRenderer({
     width: 40,
     height: 10,
   })
   
-  const text = new TextRenderable(renderer, {
+  const text = new TextRenderable(testSetup.renderer, {
     id: "greeting",
     content: "Hello, World!",
   })
   
-  renderer.root.add(text)
+  testSetup.renderer.root.add(text)
+  await testSetup.renderOnce()
   
-  expect(snapshot()).toContain("Hello, World!")
+  expect(testSetup.captureCharFrame()).toContain("Hello, World!")
 })
 ```
 
 ### Snapshot Testing
 
 ```typescript
+import { test, expect, afterEach } from "bun:test"
+import { createTestRenderer } from "@opentui/core/testing"
+import { BoxRenderable, TextRenderable } from "@opentui/core"
+
+let testSetup: Awaited<ReturnType<typeof createTestRenderer>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
+
 test("component matches snapshot", async () => {
-  const { renderer, snapshot } = await createTestRenderer({
+  testSetup = await createTestRenderer({
     width: 40,
     height: 10,
   })
   
-  // Create your component
-  const box = new BoxRenderable(renderer, {
+  const box = new BoxRenderable(testSetup.renderer, {
     id: "box",
     border: true,
     width: 20,
     height: 5,
   })
-  box.add(new TextRenderable(renderer, {
+  box.add(new TextRenderable(testSetup.renderer, {
     content: "Content",
   }))
   
-  renderer.root.add(box)
+  testSetup.renderer.root.add(box)
+  await testSetup.renderOnce()
   
-  expect(snapshot()).toMatchSnapshot()
+  expect(testSetup.captureCharFrame()).toMatchSnapshot()
 })
 ```
 
@@ -92,52 +105,84 @@ test("component matches snapshot", async () => {
 
 ### Test Utilities
 
-Create a helper for React tests:
+React provides a built-in `testRender` utility via the `@opentui/react/test-utils` subpath export:
 
 ```tsx
-// test-utils.tsx
-import { createTestRenderer } from "@opentui/core/testing"
-import { createRoot } from "@opentui/react"
-
-export async function renderForTest(
-  element: React.ReactElement,
-  options = { width: 80, height: 24 }
-) {
-  const testSetup = await createTestRenderer(options)
-  createRoot(testSetup.renderer).render(element)
-  
-  // Allow React to render
-  await new Promise(resolve => setTimeout(resolve, 0))
-  
-  return testSetup
-}
+import { testRender } from "@opentui/react/test-utils"
 ```
 
-### Component Test
+This utility:
+- Creates a headless test renderer
+- Sets up the React Act environment automatically
+- Handles proper unmounting on destroy
+- Returns the standard test setup object
+
+### Basic Component Test
 
 ```tsx
 import { test, expect } from "bun:test"
-import { renderForTest } from "./test-utils"
+import { testRender } from "@opentui/react/test-utils"
 
 function Greeting({ name }: { name: string }) {
   return <text>Hello, {name}!</text>
 }
 
 test("Greeting renders name", async () => {
-  const { snapshot } = await renderForTest(
-    <Greeting name="World" />
+  const testSetup = await testRender(
+    <Greeting name="World" />,
+    { width: 80, height: 24 }
   )
   
-  expect(snapshot()).toContain("Hello, World!")
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
+  
+  expect(frame).toContain("Hello, World!")
+})
+```
+
+### Snapshot Testing
+
+```tsx
+import { test, expect, afterEach } from "bun:test"
+import { testRender } from "@opentui/react/test-utils"
+
+let testSetup: Awaited<ReturnType<typeof testRender>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
+
+test("component matches snapshot", async () => {
+  testSetup = await testRender(
+    <box style={{ width: 20, height: 5, border: true }}>
+      <text>Content</text>
+    </box>,
+    { width: 25, height: 8 }
+  )
+  
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
+  
+  expect(frame).toMatchSnapshot()
 })
 ```
 
 ### State Testing
 
 ```tsx
-import { test, expect } from "bun:test"
-import { renderForTest } from "./test-utils"
+import { test, expect, afterEach } from "bun:test"
 import { useState } from "react"
+import { testRender } from "@opentui/react/test-utils"
+
+let testSetup: Awaited<ReturnType<typeof testRender>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
 
 function Counter() {
   const [count, setCount] = useState(0)
@@ -149,44 +194,128 @@ function Counter() {
 }
 
 test("Counter shows initial value", async () => {
-  const { snapshot } = await renderForTest(<Counter />)
+  testSetup = await testRender(
+    <Counter />,
+    { width: 20, height: 5 }
+  )
   
-  expect(snapshot()).toContain("Count: 0")
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
+  
+  expect(frame).toContain("Count: 0")
 })
 ```
+
+### Test Setup/Teardown Pattern
+
+For multiple tests, use beforeEach/afterEach to manage the renderer lifecycle:
+
+```tsx
+import { describe, test, expect, beforeEach, afterEach } from "bun:test"
+import { testRender } from "@opentui/react/test-utils"
+
+let testSetup: Awaited<ReturnType<typeof testRender>>
+
+describe("MyComponent", () => {
+  beforeEach(async () => {
+    if (testSetup) {
+      testSetup.renderer.destroy()
+    }
+  })
+
+  afterEach(() => {
+    if (testSetup) {
+      testSetup.renderer.destroy()
+    }
+  })
+
+  test("renders correctly", async () => {
+    testSetup = await testRender(<MyComponent />, {
+      width: 40,
+      height: 10,
+    })
+
+    await testSetup.renderOnce()
+    const frame = testSetup.captureCharFrame()
+    expect(frame).toMatchSnapshot()
+  })
+})
+```
+
+### Test Setup Return Object
+
+The `testRender` function returns a test setup object with these properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `renderer` | `Renderer` | The headless renderer instance |
+| `renderOnce` | `() => Promise<void>` | Triggers a single render cycle |
+| `captureCharFrame` | `() => string` | Captures current output as text |
+| `resize` | `(width, height) => void` | Resize the virtual terminal |
 
 ## Solid Testing
 
 ### Test Utilities
 
-```tsx
-// test-utils.tsx
-import { testRender } from "@opentui/solid"
+Solid exports `testRender` directly from the main package:
 
-export async function renderForTest(
-  Component: () => JSX.Element,
-  options = { width: 80, height: 24 }
-) {
-  return await testRender(Component, options)
-}
+```tsx
+import { testRender } from "@opentui/solid"
 ```
 
-### Component Test
+Note: Unlike React, Solid's `testRender` takes a **function component** (not a JSX element).
+
+### Basic Component Test
 
 ```tsx
 import { test, expect } from "bun:test"
-import { renderForTest } from "./test-utils"
+import { testRender } from "@opentui/solid"
 
 function Greeting(props: { name: string }) {
   return <text>Hello, {props.name}!</text>
 }
 
 test("Greeting renders name", async () => {
-  const { snapshot } = await renderForTest(
-    () => <Greeting name="World" />
+  const testSetup = await testRender(
+    () => <Greeting name="World" />,
+    { width: 80, height: 24 }
   )
   
-  expect(snapshot()).toContain("Hello, World!")
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
+  
+  expect(frame).toContain("Hello, World!")
+})
+```
+
+### Snapshot Testing
+
+```tsx
+import { test, expect, afterEach } from "bun:test"
+import { testRender } from "@opentui/solid"
+
+let testSetup: Awaited<ReturnType<typeof testRender>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
+
+test("component matches snapshot", async () => {
+  testSetup = await testRender(
+    () => (
+      <box style={{ width: 20, height: 5, border: true }}>
+        <text>Content</text>
+      </box>
+    ),
+    { width: 25, height: 8 }
+  )
+  
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
+  
+  expect(frame).toMatchSnapshot()
 })
 ```
 
@@ -212,8 +341,19 @@ bun test --update-snapshots
 ### Simulating Key Presses
 
 ```typescript
+import { test, expect, afterEach } from "bun:test"
+import { createTestRenderer } from "@opentui/core/testing"
+
+let testSetup: Awaited<ReturnType<typeof createTestRenderer>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
+
 test("responds to keyboard", async () => {
-  const { renderer, snapshot } = await createTestRenderer({
+  testSetup = await createTestRenderer({
     width: 40,
     height: 10,
   })
@@ -222,7 +362,7 @@ test("responds to keyboard", async () => {
   // ...
   
   // Simulate keypress
-  renderer.keyInput.emit("keypress", {
+  testSetup.renderer.keyInput.emit("keypress", {
     name: "enter",
     sequence: "\r",
     ctrl: false,
@@ -233,27 +373,39 @@ test("responds to keyboard", async () => {
     repeated: false,
   })
   
-  // Allow component to update
-  await new Promise(resolve => setTimeout(resolve, 0))
+  // Render after the keypress
+  await testSetup.renderOnce()
   
-  expect(snapshot()).toContain("Selected")
+  expect(testSetup.captureCharFrame()).toContain("Selected")
 })
 ```
 
 ### Testing Focus
 
 ```typescript
+import { test, expect, afterEach } from "bun:test"
+import { createTestRenderer } from "@opentui/core/testing"
+import { InputRenderable } from "@opentui/core"
+
+let testSetup: Awaited<ReturnType<typeof createTestRenderer>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
+
 test("input receives focus", async () => {
-  const { renderer } = await createTestRenderer({
+  testSetup = await createTestRenderer({
     width: 40,
     height: 10,
   })
   
-  const input = new InputRenderable(renderer, {
+  const input = new InputRenderable(testSetup.renderer, {
     id: "test-input",
     placeholder: "Type here",
   })
-  renderer.root.add(input)
+  testSetup.renderer.root.add(input)
   
   input.focus()
   
@@ -294,24 +446,40 @@ bun test --watch
 
 ## Patterns
 
-### Testing Conditional Rendering
+### Testing Conditional Rendering (React)
 
 ```tsx
+import { test, expect, afterEach } from "bun:test"
+import { testRender } from "@opentui/react/test-utils"
+
+let testSetup: Awaited<ReturnType<typeof testRender>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
+
 test("shows loading state", async () => {
-  const { snapshot } = await renderForTest(
-    <DataLoader loading={true} />
+  testSetup = await testRender(
+    <DataLoader loading={true} />,
+    { width: 40, height: 10 }
   )
   
-  expect(snapshot()).toContain("Loading...")
+  await testSetup.renderOnce()
+  expect(testSetup.captureCharFrame()).toContain("Loading...")
 })
 
 test("shows data when loaded", async () => {
-  const { snapshot } = await renderForTest(
-    <DataLoader loading={false} data={["Item 1", "Item 2"]} />
+  testSetup = await testRender(
+    <DataLoader loading={false} data={["Item 1", "Item 2"]} />,
+    { width: 40, height: 10 }
   )
   
-  expect(snapshot()).toContain("Item 1")
-  expect(snapshot()).toContain("Item 2")
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
+  expect(frame).toContain("Item 1")
+  expect(frame).toContain("Item 2")
 })
 ```
 
@@ -321,12 +489,16 @@ test("shows data when loaded", async () => {
 test("renders all items", async () => {
   const items = ["Apple", "Banana", "Cherry"]
   
-  const { snapshot } = await renderForTest(
-    <ItemList items={items} />
+  testSetup = await testRender(
+    <ItemList items={items} />,
+    { width: 40, height: 10 }
   )
   
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
+  
   items.forEach(item => {
-    expect(snapshot()).toContain(item)
+    expect(frame).toContain(item)
   })
 })
 ```
@@ -335,27 +507,36 @@ test("renders all items", async () => {
 
 ```tsx
 test("matches layout snapshot", async () => {
-  const { snapshot } = await renderForTest(
+  testSetup = await testRender(
     <AppLayout />,
     { width: 120, height: 40 }  // Larger viewport
   )
   
-  expect(snapshot()).toMatchSnapshot()
+  await testSetup.renderOnce()
+  expect(testSetup.captureCharFrame()).toMatchSnapshot()
 })
 ```
 
 ## Debugging Tests
 
-### Print Snapshot
+### Print Frame Output
 
-```typescript
+```tsx
+import { testRender } from "@opentui/react/test-utils"
+
 test("debug output", async () => {
-  const { snapshot } = await renderForTest(<MyComponent />)
+  const testSetup = await testRender(
+    <MyComponent />,
+    { width: 40, height: 10 }
+  )
+  
+  await testSetup.renderOnce()
+  const frame = testSetup.captureCharFrame()
   
   // Print to see what's rendered
-  console.log(snapshot())
+  console.log(frame)
   
-  expect(snapshot()).toContain("expected")
+  expect(frame).toContain("expected")
 })
 ```
 
@@ -369,25 +550,36 @@ bun test --verbose
 
 ### Async Rendering
 
-Wait for renders to complete:
+Always call `renderOnce()` after setting up your component to ensure rendering is complete:
 
 ```typescript
-// Allow React/Solid to render
-await new Promise(resolve => setTimeout(resolve, 0))
+const testSetup = await testRender(<MyComponent />, { width: 40, height: 10 })
+await testSetup.renderOnce()  // Required before capturing frame
+const frame = testSetup.captureCharFrame()
 ```
 
-### Test Isolation
+### Test Isolation and Cleanup
 
-Each test should create its own renderer:
+Always destroy the renderer after each test to avoid resource leaks:
 
 ```typescript
+import { afterEach } from "bun:test"
+
+let testSetup: Awaited<ReturnType<typeof testRender>>
+
+afterEach(() => {
+  if (testSetup) {
+    testSetup.renderer.destroy()
+  }
+})
+
 test("test 1", async () => {
-  const { renderer } = await createTestRenderer()
+  testSetup = await testRender(<Component1 />, { width: 40, height: 10 })
   // ...
 })
 
 test("test 2", async () => {
-  const { renderer } = await createTestRenderer()
+  testSetup = await testRender(<Component2 />, { width: 40, height: 10 })
   // ...
 })
 ```
@@ -397,7 +589,7 @@ test("test 2", async () => {
 Be consistent with test dimensions for stable snapshots:
 
 ```typescript
-const { snapshot } = await createTestRenderer({
+const testSetup = await createTestRenderer({
   width: 80,   // Standard width
   height: 24,  // Standard height
 })
